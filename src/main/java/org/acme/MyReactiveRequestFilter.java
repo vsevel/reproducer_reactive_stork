@@ -10,6 +10,7 @@ import javax.inject.Inject;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.Provider;
 
+import io.quarkus.arc.Arc;
 import io.quarkus.security.identity.CurrentIdentityAssociation;
 import org.jboss.resteasy.reactive.client.spi.ResteasyReactiveClientRequestContext;
 import org.jboss.resteasy.reactive.client.spi.ResteasyReactiveClientRequestFilter;
@@ -27,18 +28,20 @@ public class MyReactiveRequestFilter implements ResteasyReactiveClientRequestFil
     @Override
     public void filter(ResteasyReactiveClientRequestContext requestContext) {
 
-        log.info("processing " + requestContext.getUri() + "; suspend request context");
-        requestContext.suspend();
+        if(Arc.container().requestContext().isActive()) {
+            log.info("processing " + requestContext.getUri() + "; suspend request context");
+            requestContext.suspend();
 
-        currentIdentityAssociation.getDeferredIdentity().subscribe()
-                .with(securityIdentity -> {
-                            log.info("anonymous = " + securityIdentity.isAnonymous());
-                            requestContext.resume();
-                        },
-                        throwable -> {
-                            log.error("filter failed", throwable);
-                            requestContext.abortWith(Response.status(500).build());
-                            requestContext.resume();
-                        });
+            currentIdentityAssociation.getDeferredIdentity().subscribe()
+                    .with(securityIdentity -> {
+                                log.info("anonymous = " + securityIdentity.isAnonymous());
+                                requestContext.resume();
+                            },
+                            throwable -> {
+                                log.error("filter failed", throwable);
+                                requestContext.abortWith(Response.status(500).build());
+                                requestContext.resume();
+                            });
+        }
     }
 }
